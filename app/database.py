@@ -17,6 +17,7 @@ SessionLocal = sessionmaker(
 
 Base = declarative_base()
 
+from app.models import link
 
 def get_db():
   db = SessionLocal()
@@ -24,4 +25,6 @@ def get_db():
     yield db
   finally:
     db.close()
+
+Base.metadata.create_all(bind=engine)
 
