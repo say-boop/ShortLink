@@ -34,3 +34,7 @@ class LinkStats(BaseModel):
   original_url: str
   clicks: int
   created_at: datetime.datetime
+  
+  model_config = {
+    "from_attributes": True
+  }

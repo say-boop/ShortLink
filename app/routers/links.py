@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.schemas.link import LinkCreate, LinkResponse
+from app.schemas.link import LinkCreate, LinkResponse, LinkStats
 from app.models.link import Link
 from app.services.shortcode import generate_unique_short_code
 
@@ -19,6 +19,16 @@ def create_short_link(link_data: LinkCreate, db: Session = Depends(get_db)):
   db.commit()
   db.refresh(db_link)
   return db_link
+
+
+@router.get("/{short_code}/stats", response_model=LinkStats)
+def get_link(shotr_code: str, db: Session = Depends(get_db)):
+  link = db.query(Link).filter(Link.short_code == shotr_code).first()
+  
+  if link is None:
+    raise HTTPException(status_code=404, detail="Ссылка не найдена")
+  
+  return link
 
 
 @router.get("/{short_code}")
