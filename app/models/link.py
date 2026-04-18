@@ -1,5 +1,6 @@
 from app.database import Base
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 
 
@@ -11,5 +12,7 @@ class Link(Base):
   original_url = Column(String, nullable=False)
   created_at = Column(DateTime, default=datetime.now(timezone.utc))
   clicks = Column(Integer, default=0)
+  user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+  user = relationship("User", back_populates="links")
 
-link = Link()
+

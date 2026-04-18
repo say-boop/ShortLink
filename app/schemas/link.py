@@ -24,6 +24,7 @@ class LinkResponse(BaseModel):
   original_url: str
   clicks: int
   created_at: datetime.datetime
+  user_id: int | None = None
   
   model_config = {
     "from_attributes": True
@@ -34,6 +35,7 @@ class LinkStats(BaseModel):
   original_url: str
   clicks: int
   created_at: datetime.datetime
+  user_id: int | None = None
   
   model_config = {
     "from_attributes": True

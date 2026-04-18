@@ -1,21 +1,31 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
+
 from app.database import get_db
 from app.schemas.link import LinkCreate, LinkResponse, LinkStats
 from app.models.link import Link
+from app.models.user import User
 from app.services.shortcode import generate_unique_short_code
+from app.dependencies import get_current_user
 
 
 router = APIRouter(prefix="/links", tags=["links"])
 
 @router.post("/shorten", response_model=LinkResponse, status_code=201)
-def create_short_link(link_data: LinkCreate, db: Session = Depends(get_db)):
+def create_short_link(
+  link_data: LinkCreate, 
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user)
+):
   short_code = generate_unique_short_code(db, length=6)
-  db_link = Link(short_code=short_code, original_url=link_data.original_url)
+  db_link = Link(
+    short_code=short_code, 
+    original_url=link_data.original_url,
+    user_id=current_user.id
+  )
   
   db.add(db_link)
-  
   db.commit()
   db.refresh(db_link)
   return db_link
