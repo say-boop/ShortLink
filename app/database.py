@@ -26,5 +26,10 @@ def get_db():
   finally:
     db.close()
 
+
+from app.models import link
+from app.models import user
+
+
 Base.metadata.create_all(bind=engine)
 
