@@ -32,8 +32,8 @@ def create_short_link(
 
 
 @router.get("/{short_code}/stats", response_model=LinkStats)
-def get_link(shotr_code: str, db: Session = Depends(get_db)):
-  link = db.query(Link).filter(Link.short_code == shotr_code).first()
+def get_link(short_code: str, db: Session = Depends(get_db)):
+  link = db.query(Link).filter(Link.short_code == short_code).first()
   
   if link is None:
     raise HTTPException(status_code=404, detail="Ссылка не найдена")
