@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 import logging
+from typing import List
 
 from app.database import get_db
 from app.schemas.link import LinkCreate, LinkResponse, LinkStats
@@ -37,6 +38,21 @@ def create_short_link(
   
   logger.info(f"Создана ссылка: {short_code} -> {link_data.original_url[:50]}...")
   return db_link
+
+
+@router.get("/", response_model=List[LinkResponse])
+def get_list_all_user_links(
+  skip: int = 0,
+  limit: int = 10,
+  db: Session = Depends(get_db), 
+  current_user: User = Depends(get_current_user)
+):
+  links = db.query(Link).filter(Link.user_id == current_user.id).order_by(Link.created_at.desc()).offset(skip).limit(limit).all()
+  
+  if links is None:
+    raise HTTPException(status_code=404, detail="Ссылки не найдены")
+  
+  return links
 
 
 @router.get("/{short_code}/stats", response_model=LinkStats)

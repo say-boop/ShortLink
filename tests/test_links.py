@@ -121,5 +121,23 @@ class TestLinks:
     
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert response.json()["detail"] == "Ссылка не найдена"
-
-
+  
+  def test_get_list_user_links(self, db_session, client):
+    from tests.conftest import create_test_user, get_auth_token
+    
+    user = create_test_user(db_session, email="testuser123@example.com", password="testuser123123")
+    token = get_auth_token(client, email="testuser123@example.com", password="testuser123123")
+    
+    response = client.get(
+      "/links/",
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    
+    if isinstance(data, list):
+      for i in range(len(data)):
+        assert data[i]["user_id"] == user.id
