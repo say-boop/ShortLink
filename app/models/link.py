@@ -14,6 +14,7 @@ class Link(Base):
   clicks = Column(Integer, default=0)
   user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
   user = relationship("User", back_populates="links")
+  expires_at = Column(DateTime, nullable=True)
   last_accessed = Column(DateTime, nullable=True)
 
 

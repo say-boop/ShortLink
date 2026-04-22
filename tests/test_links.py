@@ -190,3 +190,53 @@ class TestLinks:
     )
     
     assert response_get_del_url.status_code == status.HTTP_404_NOT_FOUND
+  
+  def test_link_validity_period(self, db_session, client):
+    from tests.conftest import create_test_user, get_auth_token
+    from app.models.link import Link
+    from app.services.shortcode import generate_unique_short_code
+    from datetime import datetime, timezone, timedelta
+    
+    user = create_test_user(db_session, email="testuser123@example.com", password="testuser123123")
+    token = get_auth_token(client, email="testuser123@example.com", password="testuser123123")
+    
+    short_code = generate_unique_short_code(db_session)
+    
+    expired_link = Link(
+      short_code=short_code,
+      original_url="https://example.com",
+      user_id=user.id,
+      expires_at = datetime.now(timezone.utc) - timedelta(days=1)
+    )
+    db_session.add(expired_link)
+    db_session.commit()
+    
+    response = client.get(f"/links/{short_code}")
+    
+    assert response.status_code == status.HTTP_410_GONE
+    assert response.json()["detail"] == "Срок действия ссылки истёк"
+    
+    db_session.refresh(expired_link)
+    assert expired_link.clicks == 0
+  
+  def test_create_link_with_past_expires_at(self, db_session, client):
+    from tests.conftest import create_test_user, get_auth_token
+    from datetime import datetime, timezone, timedelta
+    
+    user = create_test_user(db_session, email="testuser123@example.com", password="testuser123123")
+    token = get_auth_token(client, email="testuser123@example.com", password="testuser123123")
+    
+    past_date = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    
+    response = client.post(
+      "/links/shorten",
+      json={
+        "original_url": "https://example.com",
+        "expires_at": past_date
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
