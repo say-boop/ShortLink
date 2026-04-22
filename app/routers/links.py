@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 import logging
@@ -50,7 +50,7 @@ def get_list_all_user_links(
   links = db.query(Link).filter(Link.user_id == current_user.id).order_by(Link.created_at.desc()).offset(skip).limit(limit).all()
   
   if links is None:
-    raise HTTPException(status_code=404, detail="Ссылки не найдены")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ссылки не найдены")
   
   return links
 
@@ -60,9 +60,30 @@ def get_link(short_code: str, db: Session = Depends(get_db)):
   link = db.query(Link).filter(Link.short_code == short_code).first()
   
   if link is None:
-    raise HTTPException(status_code=404, detail="Ссылка не найдена")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ссылка не найдена")
   
   return link
+
+
+@router.delete("/{short_code}", status_code=204)
+def delete_url_user(
+  short_code: str,
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user)
+):
+  link = db.query(Link).filter(Link.short_code == short_code).first()
+  
+  if not link:
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ссылка не найдена")
+  
+  if link.user_id != current_user.id:
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нет доступа к этой ссылке")
+  
+  db.delete(link)
+  db.commit()
+  
+  logger.info(f"Удалена ссылка {short_code} пользователем {current_user.email}")
+  return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{short_code}")
@@ -71,11 +92,11 @@ def redirect_to_original(short_code: str, db: Session = Depends(get_db)):
   
   if link is None:
     logger.warning(f"Попытка перехода по несуществующей ссылке: {short_code}")
-    raise HTTPException(status_code=404, detail="Ссылка не найдена")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ссылка не найдена")
   
   link.clicks += 1
   
   db.commit()
   
   logger.info(f"Редирект: {short_code} -> {link.original_url[:50]}... (клик #{link.clicks})")
-  return RedirectResponse(url=link.original_url, status_code=302)
+  return RedirectResponse(url=link.original_url, status_code=status.HTTP_302_FOUND)

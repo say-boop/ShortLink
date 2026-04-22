@@ -38,7 +38,7 @@ class TestLinks:
   def test_create_link_invalid_url(self, client, db_session):
     from tests.conftest import get_auth_token, create_test_user
     
-    create_test_user(db_session, email="invalid_url_test@example.com")
+    user = create_test_user(db_session, email="invalid_url_test@example.com")
     token = get_auth_token(client, email="invalid_url_test@example.com")
     
     response = client.post(
@@ -141,3 +141,52 @@ class TestLinks:
     if isinstance(data, list):
       for i in range(len(data)):
         assert data[i]["user_id"] == user.id
+  
+  def test_delete_link_user(self, db_session, client):
+    from tests.conftest import create_test_user, get_auth_token
+    
+    first_user = create_test_user(db_session, email="testuser123@example.com", password="testuser123123")
+    token_first_user = get_auth_token(client, email="testuser123@example.com", password="testuser123123")
+    
+    second_user = create_test_user(db_session, email="test123@example.com", password="test123123")
+    token_second_user = get_auth_token(client, email="test123@example.com", password="test123123")
+    
+    response = client.post(
+      "/links/shorten",
+      json={
+        "original_url": "https://example.com"
+      },
+      headers={
+        "Authorization": f"Bearer {token_first_user}"
+      }
+    )
+    
+    data_create_url = response.json()
+    short_code_url = data_create_url["short_code"]
+    
+    response_del_strang_url = client.delete(
+      f"/links/{short_code_url}",
+      headers={
+        "Authorization": f"Bearer {token_second_user}"
+      }
+    )
+    
+    assert response_del_strang_url.status_code == status.HTTP_403_FORBIDDEN
+    
+    response_delete = client.delete(
+      f"/links/{short_code_url}",
+      headers={
+        "Authorization": f"Bearer {token_first_user}"
+      }
+    )
+    
+    assert response_delete.status_code == status.HTTP_204_NO_CONTENT
+    
+    response_get_del_url = client.get(
+      f"/links/{short_code_url}",
+      headers={
+        "Authorization": f"Bearer {token_first_user}"
+      }
+    )
+    
+    assert response_get_del_url.status_code == status.HTTP_404_NOT_FOUND
