@@ -3,6 +3,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 import logging
 from typing import List
+from datetime import datetime, timezone
 
 from app.database import get_db
 from app.schemas.link import LinkCreate, LinkResponse, LinkStats
@@ -29,7 +30,8 @@ def create_short_link(
   db_link = Link(
     short_code=short_code, 
     original_url=link_data.original_url,
-    user_id=current_user.id
+    user_id=current_user.id,
+    expires_at=link_data.expires_at
   )
   
   db.add(db_link)
@@ -93,6 +95,16 @@ def redirect_to_original(short_code: str, db: Session = Depends(get_db)):
   if link is None:
     logger.warning(f"Попытка перехода по несуществующей ссылке: {short_code}")
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ссылка не найдена")
+  
+  if link.expires_at is not None:
+    expires_at = link.expires_at
+    
+    if expires_at.tzinfo is None:
+      expires_at = expires_at.replace(tzinfo=timezone.utc)
+    
+    if expires_at < datetime.now(timezone.utc):
+      logger.warning(f"Срок действия ссылки истёк: {short_code}")
+      raise HTTPException(status_code=status.HTTP_410_GONE, detail="Срок действия ссылки истёк")
   
   link.clicks += 1
   
