@@ -44,15 +44,29 @@ def create_short_link(
 
 @router.get("/", response_model=List[LinkResponse])
 def get_list_all_user_links(
+  search: str | None = None,
+  order_by: str = "created_at",
+  order_dir: str = "desc",
   skip: int = 0,
   limit: int = 10,
   db: Session = Depends(get_db), 
   current_user: User = Depends(get_current_user)
 ):
-  links = db.query(Link).filter(Link.user_id == current_user.id).order_by(Link.created_at.desc()).offset(skip).limit(limit).all()
+  query = db.query(Link).filter(Link.user_id == current_user.id)
+  allowed_fields = {"clicks", "created_at"}
   
-  if links is None:
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ссылки не найдены")
+  if search:
+    query = query.filter(Link.original_url.contains(search))
+  
+  if order_by and order_by in allowed_fields:
+    field = getattr(Link, order_by)
+    
+    if order_dir == "desc":
+      query = query.order_by(field.desc())
+    else:
+      query = query.order_by(field.asc())
+  
+  links = query.offset(skip).limit(limit).all()
   
   return links
 
