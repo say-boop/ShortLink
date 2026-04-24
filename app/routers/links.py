@@ -6,7 +6,7 @@ from typing import List
 from datetime import datetime, timezone
 
 from app.database import get_db
-from app.schemas.link import LinkCreate, LinkResponse, LinkStats
+from app.schemas.link import LinkCreate, LinkResponse, LinkStats, LinkUpdate
 from app.models.link import Link
 from app.models.user import User
 from app.services.shortcode import generate_unique_short_code
@@ -100,6 +100,31 @@ def delete_url_user(
   
   logger.info(f"Удалена ссылка {short_code} пользователем {current_user.email}")
   return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch("/{short_code}", status_code=200)
+def patch_updating_user_link(
+  new_url: LinkUpdate,
+  short_code: str,
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user)
+):
+  link = db.query(Link).filter(Link.short_code == short_code).first()
+  
+  if link is None:
+    logger.warning(f"Не найдена ссылка в базе: {short_code}")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ссылка не найдена")
+  
+  if link.user_id != current_user.id:
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нет доступа к этой ссылке")
+  
+  link.original_url = new_url.original_url
+  
+  db.commit()
+  db.refresh(link)
+  
+  logger.info(f"Ссылка {short_code} успешно изменена на {new_url}.")
+  return link
 
 
 @router.get("/{short_code}")
