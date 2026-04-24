@@ -57,3 +57,18 @@ class LinkStats(BaseModel):
   model_config = {
     "from_attributes": True
   }
+
+class LinkUpdate(BaseModel):
+  original_url: str
+  
+  @field_validator('original_url')
+  @classmethod
+  def validate_url(cls, v: str) -> str:
+    if v is None:
+      return v
+    
+    pattern = r"^https?://[^\s/$.?#].[^\s]*$"
+    
+    if not re.match(pattern, v):
+      raise ValueError('Некорректный URL')
+    return v

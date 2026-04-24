@@ -240,3 +240,262 @@ class TestLinks:
     )
     
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+  
+  def test_search_links(self, db_session, client):
+    from tests.conftest import create_test_user, get_auth_token
+    
+    user = create_test_user(db_session, email="testuser123@example.com", password="testuser123123")
+    token = get_auth_token(client, email="testuser123@example.com", password="testuser123123")    
+    
+    client.post(
+      "/links/shorten",
+      json={
+        "original_url": "https://google.com"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    client.post(
+      "/links/shorten",
+      json={
+        "original_url": "https://youtube.com"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    response = client.get(
+      "links/?search=google",
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["original_url"] == "https://google.com"
+  
+  def test_sort_by_clicks(self, db_session, client):
+    from tests.conftest import create_test_user, get_auth_token
+    from app.models.link import Link
+    
+    user = create_test_user(db_session, email="testuser123@example.com", password="testuser123123")
+    token = get_auth_token(client, email="testuser123@example.com", password="testuser123123")    
+    
+    r1 = client.post(
+      "/links/shorten",
+      json={
+        "original_url": "https://google.com"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    r2 = client.post(
+      "/links/shorten",
+      json={
+        "original_url": "https://youtube.com"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    code1 = r1.json()["short_code"]
+    code2 = r2.json()["short_code"]
+    
+    link1 = db_session.query(Link).filter(Link.short_code == code1).first()
+    link1.clicks += 10
+    db_session.commit()
+    
+    response = client.get(
+      "/links/?order_by=clicks&order_dir=desc",
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data[0]["short_code"] == code1
+    assert data[0]["clicks"] == 10
+  
+  def test_sort_by_date(self, db_session, client):
+    from tests.conftest import create_test_user, get_auth_token
+    
+    user = create_test_user(db_session, email="testuser123@example.com", password="testuser123123")
+    token = get_auth_token(client, email="testuser123@example.com", password="testuser123123")    
+    
+    client.post(
+      "/links/shorten",
+      json={
+        "original_url": "https://google.com"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    client.post(
+      "/links/shorten",
+      json={
+        "original_url": "https://youtube.com"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    response = client.get(
+      "/links/?order_by=created_at&order_dir=asc",
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 2
+    assert data[0]["original_url"] == "https://google.com"
+    assert data[1]["original_url"] == "https://youtube.com"
+  
+  def test_search_and_sort(self, db_session, client):
+    from tests.conftest import create_test_user, get_auth_token
+    
+    user = create_test_user(db_session, email="testuser123@example.com", password="testuser123123")
+    token = get_auth_token(client, email="testuser123@example.com", password="testuser123123")    
+    
+    client.post(
+      "/links/shorten",
+      json={
+        "original_url": "https://google.com"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    client.post(
+      "/links/shorten",
+      json={
+        "original_url": "https://youtube.com/page1"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    client.post(
+      "/links/shorten",
+      json={
+        "original_url": "https://youtube.com/page2"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    response = client.get(
+      "/links/?search=google&order_by=created_at&order_dir=desc",
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 1
+    for link in data:
+      assert "google" in link["original_url"]
+  
+  def test_pagination_with_search(self, db_session, client):
+    from tests.conftest import create_test_user, get_auth_token
+    
+    user = create_test_user(db_session, email="testuser123@example.com", password="testuser123123")
+    token = get_auth_token(client, email="testuser123@example.com", password="testuser123123")    
+    
+    for i in range(5):
+      client.post(
+        "/links/shorten",
+        json={
+          "original_url": f"https://test.com/page{i}"
+        },
+        headers={
+          "Authorization": f"Bearer {token}"
+        }
+      )
+    
+    response = client.get(
+      "/links/?search=test&limit=2&skip=0",
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 2
+  
+  def test_search_no_results(self, db_session, client):
+    from tests.conftest import create_test_user, get_auth_token
+    
+    user = create_test_user(db_session, email="testuser123@example.com", password="testuser123123")
+    token = get_auth_token(client, email="testuser123@example.com", password="testuser123123")    
+    
+    client.post(
+      "/links/shorten",
+      json={
+        "original_url": "https://google.com"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    response = client.get(
+      "/links/?search=nonexistent123456",
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 0
+  
+  def test_patch_updating_user_link(self, db_session, client):
+    from tests.conftest import create_test_user, get_auth_token
+    
+    user = create_test_user(db_session, email="testuser123@example.com", password="testuser123123")
+    token = get_auth_token(client, email="testuser123@example.com", password="testuser123123")
+    
+    response_post = client.post(
+      "/links/shorten",
+      json={
+        "original_url": "https://old-url.com"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    short_code_url = response_post.json()["short_code"]
+    
+    response_patch = client.patch(
+      f"/links/{short_code_url}",
+      json={
+        "original_url": "https://new-url.com"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    assert response_patch.status_code == status.HTTP_200_OK
+    data = response_patch.json()
+    assert data["original_url"] == "https://new-url.com"
