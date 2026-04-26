@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 import logging
 from typing import List
 from datetime import datetime, timezone
 
 from app.database import get_db
-from app.schemas.link import LinkCreate, LinkResponse, LinkStats, LinkUpdate
+from app.schemas.link import LinkCreate, LinkResponse, LinkStats, LinkUpdate, UserStatsResponse
 from app.models.link import Link
 from app.models.user import User
 from app.services.shortcode import generate_unique_short_code
@@ -40,6 +41,30 @@ def create_short_link(
   
   logger.info(f"Создана ссылка: {short_code} -> {link_data.original_url[:50]}...")
   return db_link
+
+
+@router.get("/stats", response_model=UserStatsResponse, status_code=status.HTTP_200_OK)
+def get_user_links_stats(
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user)
+):
+  total_links = db.query(func.count(Link.id)).filter(Link.user_id == current_user.id).scalar()
+  total_clicks = db.query(func.sum(Link.clicks)).filter(Link.user_id == current_user.id).scalar()
+  most_popular = db.query(Link).filter(Link.user_id == current_user.id).order_by(Link.clicks.desc()).first()
+  recently_created = db.query(Link).filter(Link.user_id == current_user.id).order_by(Link.created_at.desc()).first()
+  expired_count = db.query(func.count(Link.id)).filter(
+    Link.user_id == current_user.id,
+    Link.expires_at != None,
+    Link.expires_at < datetime.now(timezone.utc)
+  ).scalar()
+  
+  return {
+    "total_links": total_links,
+    "total_clicks": total_clicks or 0,
+    "most_popular": most_popular,
+    "recently_created": recently_created,
+    "expired_count": expired_count
+  }
 
 
 @router.get("/", response_model=List[LinkResponse])

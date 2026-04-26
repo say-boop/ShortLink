@@ -499,3 +499,74 @@ class TestLinks:
     assert response_patch.status_code == status.HTTP_200_OK
     data = response_patch.json()
     assert data["original_url"] == "https://new-url.com"
+  
+  def test_stats_user(self, db_session, client):
+    from tests.conftest import create_test_user, get_auth_token
+    from app.models.link import Link
+    from datetime import datetime, timezone, timedelta
+    
+    user = create_test_user(db_session, email="testuser123@example.com", password="testuser123123")
+    token = get_auth_token(client, email="testuser123@example.com", password="testuser123123")
+    
+    resp1 = client.post(
+      "/links/shorten",
+      json={
+        "original_url": "https://first-url.com"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    resp2 = client.post(
+      "/links/shorten",
+      json={
+        "original_url": "https://second-url.com"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    resp3 = client.post(
+      "/links/shorten",
+      json={
+        "original_url": "https://third-url.com"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    code1 = resp1.json()["short_code"]
+    code2 = resp2.json()["short_code"]
+    code3 = resp3.json()["short_code"]
+    
+    link1 = db_session.query(Link).filter(Link.short_code == code1).first()
+    link1.clicks = 25
+    db_session.commit()
+    
+    link2 = db_session.query(Link).filter(Link.short_code == code2).first()
+    link2.created_at = datetime.now(timezone.utc) - timedelta(days=2)
+    link2.clicks = 15
+    db_session.commit()
+    
+    link3 = db_session.query(Link).filter(Link.short_code == code3).first()
+    link3.expires_at = datetime.now(timezone.utc) - timedelta(days=3)
+    link3.clicks = 10
+    db_session.commit()
+    
+    response_get = client.get(
+      "/links/stats",
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    assert response_get.status_code == status.HTTP_200_OK
+    data = response_get.json()
+    assert data["total_links"] == 3
+    assert data["total_clicks"] == 50
+    assert data["most_popular"]["original_url"] == "https://first-url.com"
+    assert data["recently_created"]["original_url"] == "https://first-url.com"
+    assert data["expired_count"] == 1

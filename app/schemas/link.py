@@ -72,3 +72,10 @@ class LinkUpdate(BaseModel):
     if not re.match(pattern, v):
       raise ValueError('Некорректный URL')
     return v
+
+class UserStatsResponse(BaseModel):
+  total_links: int
+  total_clicks: int
+  most_popular: LinkResponse | None = None
+  recently_created: LinkResponse | None = None
+  expired_count: int
