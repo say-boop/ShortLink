@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 import logging
 from typing import List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, tzinfo
 
 from app.database import get_db
 from app.schemas.link import LinkCreate, LinkResponse, LinkStats, LinkUpdate, UserStatsResponse
@@ -19,14 +19,29 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/links", tags=["links"])
 
 
-@router.post("/shorten", response_model=LinkResponse, status_code=201)
+@router.post("/shorten", response_model=LinkResponse)
 def create_short_link(
   link_data: LinkCreate, 
   db: Session = Depends(get_db),
   current_user: User = Depends(get_current_user)
 ):
-  logger.info(f"Создание ссылки пользователем {current_user.email}: {link_data.original_url}")
   
+  existing = db.query(Link).filter(
+    Link.user_id == current_user.id,
+    Link.original_url == link_data.original_url
+    ).first()
+  
+  if existing:
+    if existing.expires_at is None:
+      return existing
+    expires = existing.expires_at
+    
+    if expires.tzinfo is None:
+      expires = expires.replace(tzinfo=timezone.utc)
+    if expires >= datetime.now(timezone.utc):
+      return existing
+  
+  logger.info(f"Создание ссылки пользователем {current_user.email}: {link_data.original_url}")
   short_code = generate_unique_short_code(db, length=6)
   db_link = Link(
     short_code=short_code, 

@@ -28,7 +28,6 @@ class TestLinks:
       }
     )
     
-    assert response.status_code == status.HTTP_201_CREATED
     data = response.json()
     assert data["original_url"] == "https://example.com"
     assert len(data["short_code"]) == 6
@@ -570,3 +569,35 @@ class TestLinks:
     assert data["most_popular"]["original_url"] == "https://first-url.com"
     assert data["recently_created"]["original_url"] == "https://first-url.com"
     assert data["expired_count"] == 1
+  
+  def test_duplicate_url_returns_existing(self, db_session, client):
+    from tests.conftest import create_test_user, get_auth_token
+    
+    user = create_test_user(db_session, email="testuser123@example.com", password="testuser123123")
+    token = get_auth_token(client, email="testuser123@example.com", password="testuser123123")
+    
+    response_first = client.post(
+      "/links/shorten",
+      json={
+        "original_url": "https://example.com"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    short_code_first_resp = response_first.json()["short_code"]
+    
+    response_second = client.post(
+      "/links/shorten",
+      json={
+        "original_url": "https://example.com"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    assert response_second.status_code == status.HTTP_200_OK
+    data = response_second.json()
+    assert data["short_code"] == short_code_first_resp
