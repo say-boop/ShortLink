@@ -6,7 +6,7 @@ class TestAuth:
     response = client.post(
       "/auth/register",
       json={
-        "email": "mewuser@example.com",
+        "email": "newuser@example.com",
         "password": "securepass123"
       }
     )
@@ -26,7 +26,7 @@ class TestAuth:
     response = client.post(
       "/auth/register",
       json={
-        "email": "mewuser@example.com",
+        "email": "existing@example.com",
         "password": "securepass123"
       }
     )
@@ -59,12 +59,12 @@ class TestAuth:
   def test_login_success(self, client, db_session):
     from tests.conftest import create_test_user
     
-    create_test_user(db_session, email="login@example.com", password="testpass123")
+    user = create_test_user(db_session, email="login@example.com", password="testpass123")
     
     response = client.post(
       "/auth/login",
       data={
-        "email": "login@example.com",
+        "username": "login@example.com",
         "password": "testpass123"
       }
     )
@@ -82,7 +82,7 @@ class TestAuth:
     response = client.post(
       "/auth/login",
       data={
-        "email": "login@example.com",
+        "username": "login@example.com",
         "password": "wrongpassword"
       }
     )
@@ -99,5 +99,35 @@ class TestAuth:
     )
     
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
-
-
+  
+  def test_change_password(self, client, db_session):
+    from tests.conftest import create_test_user, get_auth_token
+    
+    user = create_test_user(db_session, email="testuser123@example.com", password="testuser123123")
+    token = get_auth_token(client, email="testuser123@example.com", password="testuser123123")
+    
+    response_patch = client.patch(
+      "/auth/change-password",
+      json={
+        "old_password": "testuser123123",
+        "new_password": "testuser123123123"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    assert response_patch.status_code == status.HTTP_200_OK
+    
+    response_patch = client.patch(
+      "/auth/change-password",
+      json={
+        "old_password": "testuser123123",
+        "new_password": "testuser123123123"
+      },
+      headers={
+        "Authorization": f"Bearer {token}"
+      }
+    )
+    
+    assert response_patch.status_code == status.HTTP_400_BAD_REQUEST

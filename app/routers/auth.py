@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 import logging
 
 from app.database import get_db
-from app.schemas.user import UserCreate, UserResponse, Token
+from app.schemas.user import UserCreate, UserResponse, Token, ChangePassword
 from app.models.user import User
 from app.services.auth import get_password_hash, verify_password, create_access_token
+from app.dependencies import get_current_user
 
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
   
   if existing_user:
     logger.warning(f"Email уже занят: {user_data.email}")
-    raise HTTPException(status_code=400, detail="Email уже зарегистрирован")
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email уже зарегистрирован")
   
   hashed_password = get_password_hash(user_data.password)
   new_user = User(email=user_data.email, hashed_password=hashed_password)
@@ -42,7 +43,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
   if not user or not verify_password(form_data.password, user.hashed_password):
     logger.warning(f"Неудачный вход: {form_data.username}")
     raise HTTPException(
-      status_code=401,
+      status_code=status.HTTP_401_UNAUTHORIZED,
       detail="Неверный email или пароль",
       headers={"WWW-Authenticate": "Bearer"}
     )
@@ -53,3 +54,21 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
   return {"access_token": access_token, "token_type": "bearer"}
 
 
+@router.patch("/change-password")
+def change_password(
+  data: ChangePassword,
+  db: Session = Depends(get_db), 
+  current_user: User = Depends(get_current_user)
+):
+  logger.info(f"Попытка смены пароля: {current_user.email}")
+  
+  if not verify_password(data.old_password, current_user.hashed_password):
+    raise HTTPException(
+      status_code=status.HTTP_400_BAD_REQUEST,
+      detail="Неверный старый пароль"
+    )
+  
+  current_user.hashed_password = get_password_hash(data.new_password)
+  db.commit()
+  
+  return {"detail": "Пароль успешно изменён"}
