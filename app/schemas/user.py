@@ -36,3 +36,12 @@ class TokenData(BaseModel):
   email: str | None = None
 
 
+class ChangePassword(BaseModel):
+  old_password: str
+  new_password: str
+  
+  @field_validator('new_password')
+  def validate_new_password(cls, passwd: str) -> str:
+    if len(passwd) < 8:
+      raise ValueError('Пароль должен быть не менее 8 символов')
+    return passwd
