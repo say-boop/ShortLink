@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from fastapi import APIRouter, Depends, HTTPException, Response, status, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -14,13 +16,17 @@ from app.services.shortcode import generate_unique_short_code
 from app.dependencies import get_current_user
 
 
+limiter = Limiter(key_func=get_remote_address)
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/links", tags=["links"])
 
 
 @router.post("/shorten", response_model=LinkResponse)
+@limiter.limit("5/minute")
 def create_short_link(
+  request: Request,
   link_data: LinkCreate, 
   db: Session = Depends(get_db),
   current_user: User = Depends(get_current_user)
