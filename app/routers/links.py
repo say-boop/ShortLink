@@ -14,6 +14,7 @@ from app.models.link import Link
 from app.models.user import User
 from app.services.shortcode import generate_unique_short_code
 from app.dependencies import get_current_user
+from app.cache.redis_client import redis_client
 
 
 limiter = Limiter(key_func=get_remote_address)
@@ -175,6 +176,16 @@ def patch_updating_user_link(
 
 @router.get("/{short_code}")
 def redirect_to_original(short_code: str, db: Session = Depends(get_db)):
+  cached_url = redis_client.get(f"link:{short_code}")
+  
+  if cached_url:
+    logger.info(f"Ссылка найдена в redis: {short_code}")
+    link = db.query(Link).filter(Link.short_code == short_code).first()
+    if link:
+      link.clicks += 1
+      db.commit()
+    return RedirectResponse(url=cached_url, status_code=status.HTTP_302_FOUND)
+  
   link = db.query(Link).filter(Link.short_code == short_code).first()
   
   if link is None:
@@ -190,6 +201,9 @@ def redirect_to_original(short_code: str, db: Session = Depends(get_db)):
     if expires_at < datetime.now(timezone.utc):
       logger.warning(f"Срок действия ссылки истёк: {short_code}")
       raise HTTPException(status_code=status.HTTP_410_GONE, detail="Срок действия ссылки истёк")
+  
+  logger.info(f"Ссылка добавлена в redis: {short_code}")
+  redis_client.setex(f"link:{short_code}", 3600, link.original_url)
   
   link.clicks += 1
   
