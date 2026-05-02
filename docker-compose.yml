@@ -10,3 +10,11 @@ services:
       - .env
     volumes:
       - ./shortlink.db:/app/shortlink.db
+    depends_on:
+      - redis
+  
+  redis:
+    image: redis:7-alpine
+    container_name: shortlink_redis
+    ports:
+      - "6379:6379"
