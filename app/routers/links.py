@@ -211,7 +211,10 @@ def redirect_to_original(short_code: str, db: Session = Depends(get_db)):
       raise HTTPException(status_code=status.HTTP_410_GONE, detail="Срок действия ссылки истёк")
   
   logger.info(f"Ссылка добавлена в redis: {short_code}")
-  redis_client.setex(f"link:{short_code}", 3600, link.original_url)
+  try:
+    redis_client.setex(f"link:{short_code}", 3600, link.original_url)
+  except Exception:
+    pass
   
   link.clicks += 1
   
