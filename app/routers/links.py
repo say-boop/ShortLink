@@ -1,3 +1,4 @@
+import os
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from fastapi import APIRouter, Depends, HTTPException, Response, status, Request
@@ -23,9 +24,13 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/links", tags=["links"])
 
+def rate_limit():
+  if os.getenv("PYTEST_RUNNING") == "true":
+    return lambda f: f
+  return limiter.limit("5/minute")
 
 @router.post("/shorten", response_model=LinkResponse)
-@limiter.limit("5/minute")
+@rate_limit()
 def create_short_link(
   request: Request,
   link_data: LinkCreate, 

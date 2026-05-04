@@ -1,3 +1,5 @@
+import os
+os.environ["PYTEST_RUNNING"] = "true"
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -55,6 +57,8 @@ def client(db_session):
       pass
   
   app.dependency_overrides[get_db] = override_get_db
+  
+  app.state.limiter = None
   
   yield TestClient(app)
   

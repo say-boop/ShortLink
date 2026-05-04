@@ -6,6 +6,12 @@
 
 API-сервис для сокращения ссылок с аутентификацией, статистикой и автоматическим истечением срока действия.
 
+### CI/CD
+
+Проект использует GitHub Actions для автоматического запуска тестов при каждом пуше.
+
+[![Tests](https://github.com/say-boop/shortlink/actions/workflows/test.yml/badge.svg)](https://github.com/say-boop/shortlink/actions)
+
 ## 📸 Скриншоты
 
 ![Swagger UI](screenshots/image.png)

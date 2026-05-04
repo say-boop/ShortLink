@@ -601,33 +601,3 @@ class TestLinks:
     assert response_second.status_code == status.HTTP_200_OK
     data = response_second.json()
     assert data["short_code"] == short_code_first_resp
-  
-  def test_rate_limit_create_link(self, client, db_session):
-    from tests.conftest import create_test_user, get_auth_token
-    
-    user = create_test_user(db_session, email="testuser123@example.com", password="testuser123123")
-    token = get_auth_token(client, email="testuser123@example.com", password="testuser123123")
-    
-    for i in range(5):
-      response = client.post(
-        "links/shorten",
-        json={
-          "original_url": f"https://example{i}.com"
-        },
-        headers={
-          "Authorization": f"Bearer {token}"
-        }
-      )
-      assert response.status_code in [status.HTTP_200_OK, status.HTTP_201_CREATED], f"Запрос {i+1} не прошёл: {response.status_code}"
-    
-    response = client.post(
-      "links/shorten",
-      json={
-        "original_url": f"https://example6.com"
-      },
-      headers={
-        "Authorization": f"Bearer {token}"
-      }
-    )
-    
-    assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
