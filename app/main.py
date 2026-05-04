@@ -26,8 +26,9 @@ app.state.limiter = limiter
 async def rate_limit_handler(request, exc):
   raise HTTPException(
     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-    detail="Слишком много запросов. Попробуйте позже."
+  detail="Слишком много запросов. Попробуйте позже."
   )
+
 
 app.include_router(links.router)
 app.include_router(auth.router)

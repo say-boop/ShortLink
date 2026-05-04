@@ -176,7 +176,10 @@ def patch_updating_user_link(
 
 @router.get("/{short_code}")
 def redirect_to_original(short_code: str, db: Session = Depends(get_db)):
-  cached_url = redis_client.get(f"link:{short_code}")
+  try:
+    cached_url = redis_client.get(f"link:{short_code}")
+  except Exception:
+    cached_url = None
   
   if cached_url:
     logger.info(f"Ссылка найдена в redis: {short_code}")
