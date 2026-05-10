@@ -41,3 +41,34 @@ async def check_get():
     "status": "ok"
   }
 
+@app.get("/health")
+def health_check():
+  from app.database import SessionLocal
+  from app.cache.redis_client import REDIS_AVAILABLE, redis_client
+  from sqlalchemy import text
+  
+  health_status = {
+    "status": "healthy",
+    "database": "unknown",
+    "redis": "unknown"
+  }
+  
+  try:
+    db = SessionLocal()
+    db.execute(text("SELECT 1"))
+    db.close()
+    health_status["database"] = "connected"
+  except Exception:
+    health_status["database"] = "disconnected"
+    health_status["status"] = "unhealthy"
+  
+  if REDIS_AVAILABLE:
+    try:
+      redis_client.ping()
+      health_status["redis"] = "connected"
+    except Exception:
+      health_status["redis"] = "disconnected"
+  else:
+    health_status["redis"] = "not_configured"
+  
+  return health_status
