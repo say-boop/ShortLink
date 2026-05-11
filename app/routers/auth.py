@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 import logging
@@ -108,7 +108,7 @@ async def add_avatar(
   
   content = await file.read()
   
-  with open(file_path, "wb", encoding="utf-8") as f:
+  with open(file_path, "wb") as f:
     f.write(content)
   
   current_user.avatar_url = f"/app/static/avatars/{unique_file_name}"
@@ -116,3 +116,14 @@ async def add_avatar(
   db.refresh(current_user)
   
   return current_user
+
+
+@router.delete("/me")
+def delete_user_profile(
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user)
+):
+  db.delete(current_user)
+  db.commit()
+  
+  return Response(status_code=status.HTTP_204_NO_CONTENT)
