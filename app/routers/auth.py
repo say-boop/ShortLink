@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 import logging
 
 from app.database import get_db
-from app.schemas.user import UserCreate, UserResponse, Token, ChangePassword
+from app.schemas.user import UserCreate, UserResponse, Token, ChangePassword, UserUpdate
 from app.models.user import User
 from app.services.auth import get_password_hash, verify_password, create_access_token
 from app.dependencies import get_current_user
@@ -72,3 +72,24 @@ def change_password(
   db.commit()
   
   return {"detail": "Пароль успешно изменён"}
+
+
+@router.get("/me", response_model=UserResponse)
+def get_my_profile(
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user)
+):
+  return current_user
+
+
+@router.patch("/me", response_model=UserResponse)
+def patch_user_profile(
+  user_data: UserUpdate,
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user)
+):
+  current_user.username = user_data.username
+  db.commit()
+  db.refresh(current_user)
+  
+  return current_user
