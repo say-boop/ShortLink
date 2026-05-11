@@ -4,6 +4,7 @@ from datetime import datetime
 class UserCreate(BaseModel):
   email: EmailStr
   password: str
+  username: str | None = None
   
   @field_validator('password')
   def validate_password(cls, v: str) -> str:
@@ -16,6 +17,7 @@ class UserResponse(BaseModel):
   id: int
   email: str
   created_at: datetime
+  username: str | None = None
   
   model_config = {
     "from_attributes": True
@@ -25,6 +27,10 @@ class UserResponse(BaseModel):
 class UserLogin(BaseModel):
   email: EmailStr
   password: str
+
+
+class UserUpdate(BaseModel):
+  username: str
 
 
 class Token(BaseModel):

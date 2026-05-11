@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 import logging
+import uuid
+import os
 
 from app.database import get_db
-from app.schemas.user import UserCreate, UserResponse, Token, ChangePassword
+from app.schemas.user import UserCreate, UserResponse, Token, ChangePassword, UserUpdate
 from app.models.user import User
 from app.services.auth import get_password_hash, verify_password, create_access_token
 from app.dependencies import get_current_user
@@ -72,3 +74,45 @@ def change_password(
   db.commit()
   
   return {"detail": "Пароль успешно изменён"}
+
+
+@router.get("/me", response_model=UserResponse)
+def get_my_profile(
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user)
+):
+  return current_user
+
+
+@router.patch("/me", response_model=UserResponse)
+def patch_user_profile(
+  user_data: UserUpdate,
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user)
+):
+  current_user.username = user_data.username
+  db.commit()
+  db.refresh(current_user)
+  
+  return current_user
+
+
+@router.post("/me/avatar")
+async def add_avatar(
+  file: UploadFile,
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user)
+):
+  unique_file_name = f"{current_user.id}_{uuid.uuid4()}.jpg"
+  file_path = os.path.join("app", "static", "avatars", unique_file_name)
+  
+  content = await file.read()
+  
+  with open(file_path, "wb", encoding="utf-8") as f:
+    f.write(content)
+  
+  current_user.avatar_url = f"/app/static/avatars/{unique_file_name}"
+  db.commit()
+  db.refresh(current_user)
+  
+  return current_user
